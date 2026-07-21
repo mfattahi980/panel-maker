@@ -381,7 +381,7 @@ function go(view, tool) {
     $('#tb-icon').textContent = tool.icon || '🧩';
     $('#tb-name').textContent = tool.name;
     if ($('#toolframe').dataset.src !== tool.page) {
-      $('#toolframe').src = tool.page;
+      $('#toolframe').src = ATfix(tool.page);
       $('#toolframe').dataset.src = tool.page;
     }
   } else {
@@ -391,7 +391,7 @@ function go(view, tool) {
 }
 async function logout() {
   await fetch('/api/logout', { method: 'POST' });
-  location.href = '/';
+  ATgo('/');
 }
 
 /* ---------------- overview ---------------- */

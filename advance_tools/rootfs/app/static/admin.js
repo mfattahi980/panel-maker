@@ -16,7 +16,7 @@ async function api(url, opts) {
   if (!res.ok) throw new Error(data.error || res.status);
   return data;
 }
-async function logout() { await fetch('/api/logout', { method: 'POST' }); location.href = '/'; }
+async function logout() { await fetch('/api/logout', { method: 'POST' }); ATgo('/'); }
 const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;')
   .replace(/"/g,'&quot;');
 

@@ -16,7 +16,7 @@ const atPollQueue = [];
 (function loadPollJs() {
   if (window.PMPoll) return;
   const s = document.createElement('script');
-  s.src = '/static/poll.js';
+  s.src = ATfix('/static/poll.js');
   s.onload = () => { while (atPollQueue.length) atPollQueue.shift()(); };
   s.onerror = () => {
     // Last resort: keep the dashboard live with plain intervals.
@@ -179,7 +179,7 @@ async function boot() {
 
   /* logout */
   async function doLogout() { await fetch('/api/logout', { method: 'POST' });
-                              location.href = '/'; }
+                              ATgo('/'); }
   if (!logout.hidden) {
     const b = $('#logoutbtn');
     b.style.display = 'block';
@@ -1461,8 +1461,8 @@ function bind(w, el, updaters) {
     const ph = el.querySelector('.at-camph');
     if (img && w.entity) {
       const refresh = () => {
-        img.src = `/api/camera?d=${encodeURIComponent(slug)}` +
-          `&entity=${encodeURIComponent(w.entity)}&_=${Date.now()}`;
+        img.src = ATfix(`/api/camera?d=${encodeURIComponent(slug)}` +
+          `&entity=${encodeURIComponent(w.entity)}&_=${Date.now()}`);
       };
       img.onload = () => { img.style.opacity = 1; if (ph) ph.style.display = 'none'; };
       img.onerror = () => { img.style.opacity = 0; if (ph) ph.style.display = 'flex'; };
@@ -1508,8 +1508,8 @@ function bind(w, el, updaters) {
     const mapImg = el.querySelector('.at-map');
     if (mapImg && w.mapEntity) {
       const refresh = () => {
-        mapImg.src = `/api/camera?d=${encodeURIComponent(slug)}` +
-          `&entity=${encodeURIComponent(w.mapEntity)}&_=${Date.now()}`;
+        mapImg.src = ATfix(`/api/camera?d=${encodeURIComponent(slug)}` +
+          `&entity=${encodeURIComponent(w.mapEntity)}&_=${Date.now()}`);
       };
       mapImg.onerror = () => { mapImg.style.display = 'none';
         const ph = el.querySelector('.at-mapph'); if (ph) ph.style.display = 'flex'; };

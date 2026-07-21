@@ -177,7 +177,7 @@ function describeMember(name) {
 $("#bundleRefresh").addEventListener("click", loadBundlePreview);
 $("#bundleDownload").addEventListener("click", () => {
   toast("Building the bundle — your download will start in a moment…");
-  window.location.href = API + "/bundle";
+  window.location.href = ATfix(API + "/bundle");
 });
 
 /* -------------------------------------------------------------- export */
@@ -243,7 +243,7 @@ function scheduleExportRefresh() {
 $("#exportBtn").addEventListener("click", () => {
   if (!exportParts().length) return;
   toast("Building your export…");
-  window.location.href = API + "/export" + exportQuery();
+  window.location.href = ATfix(API + "/export" + exportQuery());
 });
 
 /* -------------------------------------------------------------- import */

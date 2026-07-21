@@ -70,6 +70,11 @@
 
   function registerWorker() {
     if (!('serviceWorker' in navigator) || !secure()) return;
+    // Under Home Assistant ingress the app lives at /api/hassio_ingress/<token>/,
+    // and that token changes. A worker registered there would be scoped to a
+    // path that stops existing, so installing the app is only offered when
+    // Advance Tools is reached at its own address.
+    if (window.AT_BASE) return;
     navigator.serviceWorker.register('/sw.js', { scope: '/' })
       .catch(function (err) {
         if (window.console && console.info) {

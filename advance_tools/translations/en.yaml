@@ -26,13 +26,14 @@ configuration:
       When HTTPS is on, additionally listen on port 8235 without TLS. Useful
       for old wall tablets whose browser rejects modern certificates.
   domain:
-    name: Public address of this add-on
+    name: Public address of this add-on (optional)
     description: >-
-      The address you use to reach ADVANCE TOOLS from outside — not the
-      address of Home Assistant. It is whatever your reverse proxy forwards to
-      port 8234, for example https://panel.example.com. Home Assistant's own
-      address will not work here: it has no /admin page, so the sidebar button
-      would return 404. Leave this empty to use the local IP and port instead.
+      Leave empty unless you run your own reverse proxy. Opening Advance Tools
+      from the Home Assistant sidebar does not need this. It is only used to
+      build shareable dashboard links, and must be the address that reaches
+      ADVANCE TOOLS on port 8234 — for example https://panel.example.com — not
+      the address of Home Assistant, which has no /admin page and would return
+      404.
 network:
   8234/tcp: Advance Tools web server (tablets connect here)
   8235/tcp: Extra HTTP port (only used when HTTPS and "keep HTTP" are both on)

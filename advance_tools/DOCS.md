@@ -439,33 +439,41 @@ If the cert files are missing, the add-on logs an error and falls back to
 HTTP so you're never locked out. Note: a self-signed certificate will show a
 browser warning on tablets — a real cert (Let's Encrypt / Duck DNS) won't.
 
-## The `domain` option (and the 404 it causes when it's wrong)
+## Two ways in
 
-`domain` is the **public address of this add-on** — the one your reverse
-proxy forwards to port 8234, for example `https://panel.example.com`. It is
-used for the "Open Admin Console" button on the sidebar page and for the
-shareable per-dashboard links in the admin console.
+**From the Home Assistant sidebar.** Click **Advance Tools** and it opens
+inside Home Assistant. This needs no configuration at all — no extra
+hostname, no reverse proxy, no forwarded port — and it works from wherever
+you already reach Home Assistant, including remotely. Home Assistant checks
+who you are before the request ever reaches the add-on.
+
+**Directly on port 8234.** `http://YOUR_HA_IP:8234/` is the address to point
+a wall tablet at, and it is the one to use for a dashboard running in kiosk
+mode. It is also what the installable app uses.
+
+Both serve the same thing; use whichever suits the device.
+
+### The `domain` option
+
+Only relevant to the second case. If you put Advance Tools behind your own
+reverse proxy, `domain` is the **public address of this add-on** — the one
+your proxy forwards to port 8234, for example `https://panel.example.com`.
+It is used to build the shareable per-dashboard links in the admin console.
 
 It is **not** the address of Home Assistant. That is the mistake nearly
 everyone makes, because both are "my domain". Home Assistant has no `/admin`
-page, so entering its address makes the sidebar button open
-`https://your-ha-address/admin` and Home Assistant answers **404 Not Found**.
-
-Two examples, assuming NGINX in front of both:
+page, so entering its address produces **404 Not Found**.
 
 | You reach… | at | `domain` should be |
 |---|---|---|
 | Home Assistant | `https://home.example.com` → `192.168.1.3:8123` | *not this* |
 | Advance Tools | `https://panel.example.com` → `192.168.1.3:8234` | `https://panel.example.com` |
 
-Leave the field **empty** if you don't use a proxy — the sidebar page then
-links to the add-on's own address and port.
+**Leave it empty unless you actually run a proxy.** The sidebar does not need
+it, and an empty field simply falls back to the add-on's own address.
 
-The add-on checks this for you. At start-up it fetches `<domain>/health` and
-writes the verdict to the add-on log, and the sidebar page runs the same
-check in your browser: if something other than Advance Tools answers, it
-shows an explanation and falls back to the local address instead of sending
-you to a bare 404.
+At start-up the add-on fetches `<domain>/health` and writes the verdict to
+its log, so a wrong value says so rather than failing silently later.
 
 ## Security notes
 

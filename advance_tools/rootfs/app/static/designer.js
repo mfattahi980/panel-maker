@@ -69,7 +69,7 @@ async function load() {
     await ATDialog.alert('Dashboard not found',
       `"${SLUG}" doesn't exist (or couldn't be loaded: ${e.message}).
        You'll be taken back to the admin panel.`, { danger: true, icon: '🔍' });
-    location.href = '/admin';
+    ATgo('/admin');
     return;
   }
   ENTITIES = ents.entities;

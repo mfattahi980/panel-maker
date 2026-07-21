@@ -40,7 +40,7 @@
     },
     async logout() {
       await fetch('/api/logout', { method: 'POST' });
-      location.href = '/';
+      ATgo('/');
     },
   };
   const pending = new Map();

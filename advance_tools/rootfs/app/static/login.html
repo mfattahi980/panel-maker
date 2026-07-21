@@ -110,7 +110,7 @@ document.getElementById('f').addEventListener('submit', async e => {
     })
   });
   const data = await res.json();
-  if (data.ok) { location.href = data.url; }
+  if (data.ok) { ATgo(data.url); }
   else { err.textContent = data.error || 'Login failed'; err.style.display = 'block'; }
 });
 </script>

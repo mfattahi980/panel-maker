@@ -3,6 +3,30 @@
 Versioning follows [semver](https://semver.org): MAJOR.MINOR.PATCH — new
 features bump MINOR, fixes bump PATCH.
 
+## 1.0.2
+
+**Advance Tools now runs inside Home Assistant.** Click it in the sidebar and
+the app opens there — no second hostname, no reverse proxy, no forwarded port,
+no `domain` to configure. If you can reach Home Assistant, you can reach
+Advance Tools, including from outside your house.
+
+Until now the sidebar only held a launcher that sent you to the add-on's own
+address on port 8234. That works on a laptop at home and fails everywhere
+else, and the fix required running your own web server — which most people
+reasonably do not.
+
+- The whole app is served through **Home Assistant ingress**: all 18 tools,
+  the dashboards, the designer, the live WebSocket. Home Assistant
+  authenticates the request before it reaches the add-on.
+- Opening it from the sidebar no longer depends on the `domain` option at all.
+  `domain` is now only for tablets and phones that open the panel directly,
+  and it can be left empty.
+- Port `8234` is still there and still works, unchanged, for wall tablets on
+  the local network and for anyone already using it.
+- Installing Advance Tools to a phone home screen is offered only on the
+  direct address, since the ingress path contains a token that is not stable
+  enough to host an installed app.
+
 ## 1.0.1
 
 Fixes the **404 Not Found** you get from the sidebar page when the `domain`

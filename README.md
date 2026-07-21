@@ -83,8 +83,13 @@ reference an entity *before* you remove it.
 3. The setup wizard walks you through creating a password and building your
    first dashboard.
 
+It runs **inside Home Assistant**, so there is nothing else to configure — no
+second hostname, no reverse proxy, no forwarded port. Wherever you already
+reach Home Assistant, you reach Advance Tools. Wall tablets can also connect
+straight to port `8234`, which is what the installable app uses.
+
 Needs Home Assistant OS or Supervised. Builds for `amd64`, `aarch64` and
-`armv7`. It also installs to a phone home screen as an app.
+`armv7`.
 
 ## Design principles
 

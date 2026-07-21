@@ -56,6 +56,13 @@ jobs:
         # (which is exactly what happened in 2.16.0), so it gets real tests.
         run: node scripts/poll.test.js
 
+      - name: Ingress end-to-end test
+        # The add-on is written with absolute paths but Home Assistant serves it
+        # from /api/hassio_ingress/<token>/. This drives the real app through a
+        # stand-in for that proxy; any path that escapes the prefix 404s here
+        # rather than in someone's sidebar.
+        run: python3 scripts/ingress.test.py
+
   addon-lint:
     name: Home Assistant add-on lint
     runs-on: ubuntu-latest

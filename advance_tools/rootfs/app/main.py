@@ -34,7 +34,7 @@ from aiohttp import WSMsgType, web
 log = logging.getLogger("advance_tools")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
-VERSION = "1.0.1"  # keep in sync with config.yaml
+VERSION = "1.0.2"  # keep in sync with config.yaml
 START_TIME = time.time()
 
 # ---------------------------------------------------------------- paths / env
@@ -892,19 +892,149 @@ async def nocache_mw(request, handler):
     return resp
 
 
+# The whole app is written with absolute paths — `/api/...`, `/static/...`,
+# `href="/admin"`, `Location: /setup`. That is fine when it owns the root of a
+# host, and wrong under Home Assistant's ingress, which serves it from
+# `/api/hassio_ingress/<token>/`. Home Assistant strips that prefix before it
+# reaches us and tells us what it was in the X-Ingress-Path header.
+#
+# Rewriting 151 hard-coded paths across 51 files, in 18 independently-written
+# tool plugins, would be a permanent tax on every future tool. Instead the
+# prefix is applied in one place, at the edge, in two halves:
+#
+#   * server side — this middleware fixes redirect Location headers and the
+#     href/src/action attributes in HTML, which are resolved by the browser
+#     before any script runs;
+#   * client side — INGRESS_SHIM patches fetch, XMLHttpRequest, WebSocket and
+#     link clicks, which is where URLs built at runtime come from.
+#
+# The shim is injected on every HTML page, ingress or not. With no prefix it
+# is inert, but ATgo()/ATfix() always exist, so page code has one way to build
+# a URL that is correct in both worlds.
+
+INGRESS_SHIM = """<script>
+(function () {
+  var B = %s;                       // "" when served directly
+  function fix(u) {
+    if (typeof u !== "string" || u.charAt(0) !== "/") return u;
+    if (u.charAt(1) === "/") return u;            // protocol-relative
+    if (!B || u.indexOf(B + "/") === 0) return u; // nothing to do / already done
+    return B + u;
+  }
+  window.AT_BASE = B;
+  window.ATfix = fix;
+  window.ATgo = function (u) { location.href = fix(u); };
+  if (!B) return;
+
+  var _fetch = window.fetch;
+  window.fetch = function (input, init) {
+    if (typeof input === "string") input = fix(input);
+    else if (window.Request && input instanceof Request && input.url) {
+      var p = input.url.replace(/^[a-z]+:\\/\\/[^\\/]+/i, "");
+      if (fix(p) !== p) input = new Request(location.origin + fix(p), input);
+    }
+    return _fetch.call(this, input, init);
+  };
+
+  var _open = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function (m, u) {
+    arguments[1] = fix(u);
+    return _open.apply(this, arguments);
+  };
+
+  var _WS = window.WebSocket;
+  if (_WS) {
+    var Patched = function (url, protocols) {
+      if (typeof url === "string") {
+        var m = url.match(/^(wss?:\\/\\/[^\\/]+)(\\/.*)$/i);
+        if (m && fix(m[2]) !== m[2]) url = m[1] + fix(m[2]);
+      }
+      return protocols === undefined ? new _WS(url) : new _WS(url, protocols);
+    };
+    Patched.prototype = _WS.prototype;
+    ["CONNECTING", "OPEN", "CLOSING", "CLOSED"].forEach(function (k, i) {
+      Patched[k] = i;
+    });
+    window.WebSocket = Patched;
+  }
+
+  // Links added to the DOM after the server-side rewrite ran.
+  document.addEventListener("click", function (e) {
+    var a = e.target && e.target.closest && e.target.closest("a[href^='/']");
+    if (!a) return;
+    var h = a.getAttribute("href");
+    if (fix(h) !== h) a.setAttribute("href", fix(h));
+    // Under ingress the top window is Home Assistant, not this app. A tool
+    // escaping its iframe wants the hub, which is always one level up.
+    if (a.getAttribute("target") === "_top") a.setAttribute("target", "_parent");
+  }, true);
+})();
+</script>"""
+
+_ABS_ATTR_RE = re.compile(r'\b(href|src|action)=(["\'])/(?!/)')
+
+
+def _ingress_prefix(request):
+    """The path Home Assistant serves us under, or "" for direct access."""
+    return (request.headers.get("X-Ingress-Path") or "").rstrip("/")
+
+
+def _rewrite_html(body, prefix):
+    """Apply the prefix to a served HTML document."""
+    if prefix:
+        body = _ABS_ATTR_RE.sub(r'\1=\2' + prefix + '/', body)
+        # See the click handler above — _top is Home Assistant's window here.
+        body = body.replace('target="_top"', 'target="_parent"')
+    shim = INGRESS_SHIM % json.dumps(prefix)
+    lower = body.lower()
+    i = lower.find("<head>")
+    if i != -1:
+        return body[:i + 6] + shim + body[i + 6:]
+    return shim + body
+
+
 @web.middleware
 async def ingress_mw(request, handler):
-    """Requests arriving on the ingress port come from HA's sidebar (already
-    authenticated by Home Assistant, admins only via panel_admin). Serve a
-    small launcher page that opens the hub full-window — the app's own pages
-    use absolute paths and can't run under the ingress prefix."""
-    sock = request.transport.get_extra_info("sockname") if request.transport else None
-    if sock and sock[1] == INGRESS_PORT:
-        html = (APP / "static" / "ingress.html").read_text(encoding="utf-8")
-        return web.Response(text=html.replace("{{DOMAIN}}", _public_domain()),
-                            content_type="text/html",
-                            headers={"Cache-Control": "no-cache"})
-    return await handler(request)
+    """Make the app work both at the root of a host and under HA's ingress path.
+
+    Ingress is what lets someone with a single Home Assistant address — no
+    second hostname, no reverse proxy, no forwarded port — open Advance Tools
+    from the sidebar. Home Assistant has already authenticated the user before
+    the request arrives here.
+    """
+    prefix = _ingress_prefix(request)
+    try:
+        resp = await handler(request)
+    except web.HTTPException as exc:
+        # Every "you must sign in first" redirect in the app is *raised*
+        # (HTTPFound), not returned, so it would sail past this middleware and
+        # send the browser to the host root — outside ingress, straight to a
+        # Home Assistant 404. Catching it here is what keeps sign-in working.
+        resp = exc
+
+    loc = resp.headers.get("Location")
+    if prefix and loc and loc.startswith("/") and not loc.startswith("//"):
+        resp.headers["Location"] = prefix + loc
+
+    # FileResponse streams straight from disk, so read the file instead.
+    if isinstance(resp, web.FileResponse):
+        path = getattr(resp, "_path", None)
+        if path is None or path.suffix.lower() not in (".html", ".htm"):
+            return resp
+        out = web.Response(text=_rewrite_html(path.read_text(encoding="utf-8"),
+                                              prefix),
+                           content_type="text/html", status=resp.status)
+        out.headers.update({k: v for k, v in resp.headers.items()
+                            if k.lower() in ("cache-control", "set-cookie")})
+        return out
+
+    if (isinstance(resp, web.Response) and resp.body is not None
+            and (resp.content_type or "").lower() == "text/html"):
+        try:
+            resp.text = _rewrite_html(resp.body.decode("utf-8"), prefix)
+        except UnicodeDecodeError:
+            pass
+    return resp
 
 
 def build_app():
